@@ -1,3 +1,4 @@
+import contextlib
 import ipaddress
 import json
 import os
@@ -70,7 +71,7 @@ from ollama._types import (
 T = TypeVar('T')
 
 
-class BaseClient:
+class BaseClient(contextlib.AbstractContextManager):
   def __init__(
     self,
     client,
@@ -105,6 +106,15 @@ class BaseClient:
       **kwargs,
     )
 
+  def __exit__(self, exc_type, exc_val, exc_tb):
+    self.close()
+
+  async def __aenter__(self) -> Any:
+    return self
+
+  async def __aexit__(self, exc_type, exc_val, exc_tb):
+    await self.close()
+
 
 CONNECTION_ERROR_MESSAGE = 'Failed to connect to Ollama. Please check that Ollama is downloaded, running and accessible. https://ollama.com/download'
 
@@ -115,12 +125,6 @@ class Client(BaseClient):
 
   def close(self):
     self._client.close()
-
-  def __enter__(self):
-    return self
-
-  def __exit__(self, exc_type, exc_val, exc_tb):
-    self.close()
 
   def _request_raw(self, *args, **kwargs):
     try:
@@ -628,12 +632,6 @@ class AsyncClient(BaseClient):
 
   async def close(self):
     await self._client.aclose()
-
-  async def __aenter__(self):
-    return self
-
-  async def __aexit__(self, exc_type, exc_val, exc_tb):
-    await self.close()
 
   async def _request_raw(self, *args, **kwargs):
     try:
